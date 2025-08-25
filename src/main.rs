@@ -23,12 +23,6 @@ async fn main() -> Result<()> {
         vec![]
     ).await?;
 
-    println!("{app_token:?}");
-
-    let my_user = client.helix.get_user_from_login(&twitch_user_login, &app_token).await?.ok_or_else(|| anyhow!("failed to retrieve bot user"))?;
-
-    println!("{my_user:?}");
-
     let conduits = client.helix.get_conduits(&app_token).await?;
 
     println!("{conduits:?}");
@@ -42,8 +36,7 @@ async fn main() -> Result<()> {
     println!("{conduit:?}");
 
     let broadcaster_user = client.helix.get_user_from_login(&twitch_broadcaster_login, &app_token).await?.ok_or_else(|| anyhow!("failed to retrieve broadcaster user"))?;
-
-    println!("{broadcaster_user:?}");
+    let my_user = client.helix.get_user_from_login(&twitch_user_login, &app_token).await?.ok_or_else(|| anyhow!("failed to retrieve bot user"))?;
 
     let event_info = client.helix.create_eventsub_subscription(
         ChannelChatMessageV1::new(broadcaster_user.id, my_user.id),
