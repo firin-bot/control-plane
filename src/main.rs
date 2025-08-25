@@ -1,4 +1,8 @@
 use anyhow::{Context, Result, anyhow};
+use twitch_api::eventsub::{
+    Transport,
+    channel::ChannelChatMessageV1
+};
 use twitch_api::TwitchClient;
 use twitch_api::twitch_oauth2::AppAccessToken;
 
@@ -6,9 +10,10 @@ use twitch_api::twitch_oauth2::AppAccessToken;
 async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
 
-    let twitch_client_id = std::env::var("TWITCH_CLIENT_ID").context("missing TWITCH_CLIENT_ID")?;
-    let twitch_client_secret = std::env::var("TWITCH_CLIENT_SECRET").context("missing TWITCH_CLIENT_SECRET")?;
-    let twitch_user_login = std::env::var("TWITCH_USER_LOGIN").context("missing TWITCH_USER_LOGIN")?;
+    let twitch_client_id         = std::env::var("TWITCH_CLIENT_ID"        ).context("missing TWITCH_CLIENT_ID")?;
+    let twitch_client_secret     = std::env::var("TWITCH_CLIENT_SECRET"    ).context("missing TWITCH_CLIENT_SECRET")?;
+    let twitch_user_login        = std::env::var("TWITCH_USER_LOGIN"       ).context("missing TWITCH_USER_LOGIN")?;
+    let twitch_broadcaster_login = std::env::var("TWITCH_BROADCASTER_LOGIN").context("missing TWITCH_BROADCASTER_LOGIN")?;
 
     let client: TwitchClient<reqwest::Client> = TwitchClient::default();
     let app_token = AppAccessToken::get_app_access_token(
@@ -36,7 +41,17 @@ async fn main() -> Result<()> {
 
     println!("{conduit:?}");
 
-    //client.helix.create_eventsub_subscription
+    let broadcaster_user = client.helix.get_user_from_login(&twitch_broadcaster_login, &app_token).await?.ok_or_else(|| anyhow!("failed to retrieve broadcaster user"))?;
+
+    println!("{broadcaster_user:?}");
+
+    let event_info = client.helix.create_eventsub_subscription(
+        ChannelChatMessageV1::new(broadcaster_user.id, my_user.id),
+        Transport::conduit(&conduit.id),
+        &app_token
+    ).await?;
+
+    println!("{event_info:?}");
 
     Ok(())
 }
