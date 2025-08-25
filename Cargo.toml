@@ -1,0 +1,11 @@
+[package]
+name = "firin-bot-control-plane"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.99", default-features = false }
+dotenvy = "0.15.7"
+reqwest = { version = "0.12.23", default-features = false, features = ["default-tls"] }
+tokio = { version = "1.47.1", default-features = false, features = ["macros", "rt-multi-thread"] }
+twitch_api = { version = "0.7.2", default-features = false, features = ["client", "eventsub", "helix", "reqwest"] }
