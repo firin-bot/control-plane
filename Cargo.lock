@@ -169,6 +169,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "dotenvy",
+ "futures-util",
  "reqwest",
  "tokio",
  "twitch_api",

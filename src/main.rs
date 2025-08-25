@@ -1,8 +1,10 @@
 use anyhow::{Context, Result, anyhow};
+use futures_util::TryStreamExt;
 use twitch_api::eventsub::{
     Transport,
     channel::ChannelChatMessageV1
 };
+use twitch_api::helix::users::User;
 use twitch_api::TwitchClient;
 use twitch_api::twitch_oauth2::AppAccessToken;
 
@@ -35,16 +37,20 @@ async fn main() -> Result<()> {
 
     println!("{conduit:?}");
 
-    let broadcaster_user = client.helix.get_user_from_login(&twitch_broadcaster_login, &app_token).await?.ok_or_else(|| anyhow!("failed to retrieve broadcaster user"))?;
-    let my_user = client.helix.get_user_from_login(&twitch_user_login, &app_token).await?.ok_or_else(|| anyhow!("failed to retrieve bot user"))?;
+    let my_user = client.helix.get_user_from_login(&twitch_user_login, &app_token).await?.ok_or_else(|| anyhow!("failed to retrieve my user"))?;
+    let broadcaster_users: Vec<User> = client.helix.get_users_from_logins(&[twitch_broadcaster_login][..].into(), &app_token).try_collect().await?;
 
-    let event_info = client.helix.create_eventsub_subscription(
-        ChannelChatMessageV1::new(broadcaster_user.id, my_user.id),
-        Transport::conduit(&conduit.id),
-        &app_token
-    ).await?;
+    println!("{broadcaster_users:?}");
 
-    println!("{event_info:?}");
+    for broadcaster_user in broadcaster_users {
+        let event_info = client.helix.create_eventsub_subscription(
+            ChannelChatMessageV1::new(broadcaster_user.id, my_user.id.clone()),
+            Transport::conduit(&conduit.id),
+            &app_token
+        ).await?;
+
+        println!("{event_info:?}");
+    }
 
     Ok(())
 }
