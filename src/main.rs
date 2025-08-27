@@ -1,5 +1,5 @@
-use anyhow::{Context, Result, anyhow};
-use futures_util::TryStreamExt;
+use anyhow::{Context as _, Result, anyhow};
+use futures_util::TryStreamExt as _;
 use twitch_api::eventsub::{
     Transport,
     channel::ChannelChatMessageV1
