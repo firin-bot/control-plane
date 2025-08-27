@@ -10,6 +10,7 @@ use twitch_api::twitch_oauth2::AppAccessToken;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env_logger::init();
     dotenvy::dotenv().ok();
 
     let twitch_client_id         = std::env::var("TWITCH_CLIENT_ID"        ).context("missing TWITCH_CLIENT_ID")?;
@@ -27,7 +28,7 @@ async fn main() -> Result<()> {
 
     let conduits = client.helix.get_conduits(&app_token).await?;
 
-    println!("{conduits:?}");
+    log::info!("{conduits:?}");
 
     let conduit = if let Some(c) = conduits.into_iter().next() {
         c
@@ -35,12 +36,12 @@ async fn main() -> Result<()> {
         client.helix.create_conduit(1, &app_token).await?
     };
 
-    println!("{conduit:?}");
+    log::info!("{conduit:?}");
 
     let my_user = client.helix.get_user_from_login(&twitch_user_login, &app_token).await?.ok_or_else(|| anyhow!("failed to retrieve my user"))?;
     let broadcaster_users: Vec<User> = client.helix.get_users_from_logins(&[twitch_broadcaster_login][..].into(), &app_token).try_collect().await?;
 
-    println!("{broadcaster_users:?}");
+    log::info!("{broadcaster_users:?}");
 
     for broadcaster_user in broadcaster_users {
         let event_info = client.helix.create_eventsub_subscription(
@@ -49,7 +50,7 @@ async fn main() -> Result<()> {
             &app_token
         ).await?;
 
-        println!("{event_info:?}");
+        log::info!("{event_info:?}");
     }
 
     Ok(())
