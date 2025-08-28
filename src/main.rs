@@ -1,18 +1,31 @@
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{Context as _, anyhow};
+use axum::{extract::State, http::StatusCode, Router, routing::post};
+use axum_extra::TypedHeader;
+use std::sync::Arc;
 use futures_util::TryStreamExt as _;
+use headers::{Authorization, authorization::Bearer};
 use twitch_api::eventsub::{
-    Transport,
+    Conduit, Shard, Transport,
     channel::ChannelChatMessageV1
 };
 use twitch_api::helix::users::User;
 use twitch_api::TwitchClient;
 use twitch_api::twitch_oauth2::AppAccessToken;
 
+struct ControlState<'a> {
+    client: TwitchClient<'a, reqwest::Client>,
+    app_token: AppAccessToken,
+    conduit: Conduit,
+    token: String
+}
+
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> anyhow::Result<()> {
     env_logger::init();
     dotenvy::dotenv().ok();
 
+    let control_port             = std::env::var("CONTROL_PORT"            ).context("missing CONTROL_PORT")?.parse::<u16>()?;
+    let control_hardcoded_token  = std::env::var("CONTROL_HARDCODED_TOKEN" ).context("missing CONTROL_HARDCODED_TOKEN")?;
     let twitch_client_id         = std::env::var("TWITCH_CLIENT_ID"        ).context("missing TWITCH_CLIENT_ID")?;
     let twitch_client_secret     = std::env::var("TWITCH_CLIENT_SECRET"    ).context("missing TWITCH_CLIENT_SECRET")?;
     let twitch_user_login        = std::env::var("TWITCH_USER_LOGIN"       ).context("missing TWITCH_USER_LOGIN")?;
@@ -44,14 +57,52 @@ async fn main() -> Result<()> {
     log::info!("{broadcaster_users:?}");
 
     for broadcaster_user in broadcaster_users {
-        let event_info = client.helix.create_eventsub_subscription(
+        match client.helix.create_eventsub_subscription(
             ChannelChatMessageV1::new(broadcaster_user.id, my_user.id.clone()),
             Transport::conduit(&conduit.id),
             &app_token
-        ).await?;
-
-        log::info!("{event_info:?}");
+        ).await {
+            Ok(event_info) => {
+                log::info!("{event_info:?}");
+            },
+            Err(e) => {
+                log::error!("{e:?}");
+            }
+        }
     }
 
+    // control server stuff
+
+    let control_state = Arc::new(ControlState {
+        client,
+        app_token,
+        conduit,
+        token: control_hardcoded_token
+    });
+
+    let app = Router::new()
+        .route("/session/assign", post(session_assign))
+        .with_state(control_state);
+
+    let listener = tokio::net::TcpListener::bind(("0.0.0.0", control_port)).await?;
+
+    axum::serve(listener, app).await?;
+
     Ok(())
+}
+
+async fn session_assign(
+    State(control_state): State<Arc<ControlState<'_>>>,
+    TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
+    body: String
+) -> Result<&'static str, StatusCode> {
+    if bearer.token() != control_state.token {
+        Err(reqwest::StatusCode::UNAUTHORIZED)
+    } else {
+        let shard = Shard::new("0", Transport::websocket(body));
+        let r = control_state.client.helix.update_conduit_shards(control_state.conduit.id.clone(), &[shard], &control_state.app_token).await;
+        log::info!("{r:?}");
+
+        Ok("Hello world!")
+    }
 }
