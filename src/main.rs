@@ -1,5 +1,6 @@
 use anyhow::{Context as _, anyhow};
 use axum::{extract::State, http::StatusCode, Router, routing::post};
+use axum::Json;
 use axum_extra::TypedHeader;
 use std::sync::Arc;
 use futures_util::TryStreamExt as _;
@@ -11,10 +12,14 @@ use twitch_api::eventsub::{
 use twitch_api::helix::users::User;
 use twitch_api::TwitchClient;
 use twitch_api::twitch_oauth2::AppAccessToken;
+use twitch_api::types::UserId;
 
 struct ControlState<'a> {
+    twitch_client_id: String,
+    twitch_client_secret: String,
     client: TwitchClient<'a, reqwest::Client>,
     app_token: AppAccessToken,
+    my_user: User,
     conduit: Conduit,
     token: String
 }
@@ -34,8 +39,8 @@ async fn main() -> anyhow::Result<()> {
     let client: TwitchClient<reqwest::Client> = TwitchClient::default();
     let app_token = AppAccessToken::get_app_access_token(
         &client,
-        twitch_client_id.into(),
-        twitch_client_secret.into(),
+        twitch_client_id.clone().into(),
+        twitch_client_secret.clone().into(),
         vec![]
     ).await?;
 
@@ -74,8 +79,11 @@ async fn main() -> anyhow::Result<()> {
     // control server stuff
 
     let control_state = Arc::new(ControlState {
+        twitch_client_id,
+        twitch_client_secret,
         client,
         app_token,
+        my_user,
         conduit,
         token: control_hardcoded_token
     });
@@ -95,14 +103,21 @@ async fn session_assign(
     State(control_state): State<Arc<ControlState<'_>>>,
     TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
     body: String
-) -> Result<&'static str, StatusCode> {
+) -> Result<Json<(String, String, UserId)>, StatusCode> {
     if bearer.token() != control_state.token {
         Err(reqwest::StatusCode::UNAUTHORIZED)
     } else {
         let shard = Shard::new("0", Transport::websocket(body));
-        let r = control_state.client.helix.update_conduit_shards(control_state.conduit.id.clone(), &[shard], &control_state.app_token).await;
-        log::info!("{r:?}");
+        control_state.client.helix.update_conduit_shards(
+            control_state.conduit.id.clone(),
+            &[shard],
+            &control_state.app_token
+        ).await.map_err(|_| reqwest::StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        Ok("Hello world!")
+        Ok(Json((
+            control_state.twitch_client_id.clone(),
+            control_state.twitch_client_secret.clone(),
+            control_state.my_user.id.clone()
+        )))
     }
 }

@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = { version = "1.0.99", default-features = false }
-axum = { version = "0.8.4", default-features = false, features = ["http2", "tokio"] }
+axum = { version = "0.8.4", default-features = false, features = ["http2", "json", "tokio"] }
 axum-extra = { version = "0.10.1", default-features = false, features = ["typed-header"] }
 dotenvy = { version = "0.15.7", default-features = false }
 env_logger = { version = "0.11.8", default-features = false, features = ["auto-color", "humantime"] }
