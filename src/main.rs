@@ -1,8 +1,10 @@
+extern crate alloc;
+
 use anyhow::{Context as _, anyhow};
 use axum::{extract::State, http::StatusCode, Router, routing::post};
 use axum::Json;
 use axum_extra::TypedHeader;
-use std::sync::Arc;
+use alloc::sync::Arc;
 use futures_util::TryStreamExt as _;
 use headers::{Authorization, authorization::Bearer};
 use twitch_api::eventsub::{
@@ -112,7 +114,7 @@ async fn session_assign(
             control_state.conduit.id.clone(),
             &[shard],
             &control_state.app_token
-        ).await.map_err(|_| reqwest::StatusCode::INTERNAL_SERVER_ERROR)?;
+        ).await.map_err(|_err| reqwest::StatusCode::INTERNAL_SERVER_ERROR)?;
 
         Ok(Json((
             control_state.twitch_client_id.clone(),
