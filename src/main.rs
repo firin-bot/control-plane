@@ -1,16 +1,21 @@
 extern crate alloc;
 
-use anyhow::{Context as _, anyhow};
-use axum::{extract::State, http::StatusCode, Router, routing::post};
-use axum::Json;
-use axum_extra::TypedHeader;
 use alloc::sync::Arc;
+use anyhow::Context as _;
+use anyhow::anyhow;
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::Json;
+use axum::Router;
+use axum::routing::post;
+use axum_extra::TypedHeader;
 use futures_util::TryStreamExt as _;
-use headers::{Authorization, authorization::Bearer};
-use twitch_api::eventsub::{
-    Conduit, Shard, Transport,
-    channel::ChannelChatMessageV1
-};
+use headers::Authorization;
+use headers::authorization::Bearer;
+use twitch_api::eventsub::channel::ChannelChatMessageV1;
+use twitch_api::eventsub::Conduit;
+use twitch_api::eventsub::Shard;
+use twitch_api::eventsub::Transport;
 use twitch_api::helix::users::User;
 use twitch_api::TwitchClient;
 use twitch_api::twitch_oauth2::AppAccessToken;
